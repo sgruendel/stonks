@@ -47,7 +47,7 @@ async function handleThroughput(callback, params, attempt = 1) {
         const sleep = temp / 2 + Math.floor(Math.random() * temp / 2);
         console.log('*** sleeping for ' + sleep + ' on attempt ' + attempt + ', temp ' + temp);
         await new Promise(resolve => setTimeout(resolve, sleep));
-        return await handleThroughput(callback, params, ++attempt);
+        return handleThroughput(callback, params, ++attempt);
     }
     return result;
 }
@@ -58,7 +58,7 @@ async function query(qs) {
     const response = await queue.add(() => fetch(BASE_URL + 'query?' + querystring.stringify(qs)));
     console.log('got     ' + querystring.stringify(qs));
     console.log('queue size/pending: ' + queue.size, queue.pending);
-    return await response.json();
+    return response.json();
 }
 
 async function queryTechnicalIndicators(qs, resultKey) {
@@ -91,7 +91,7 @@ exports.queryCompanyOverview = async(symbol) => {
         symbol: symbol,
         apikey: getApiKey(symbol),
     };
-    const result = await query(qs);
+    const result = await handleThroughput(query, qs);
     const overview = {};
     Object.keys(result).forEach(key => {
         overview[normalizeKey(key)] = result[key];
