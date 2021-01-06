@@ -123,7 +123,7 @@ exports.queryDailyAdjusted = async(symbol, since) => {
     });
 };
 
-exports.querySMA = async(symbol, timePeriod, since = null) => {
+exports.querySMA = async(symbol, timePeriod, since) => {
     const qs = {
         function: 'SMA',
         symbol: symbol,
