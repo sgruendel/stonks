@@ -70,6 +70,7 @@ symbols.forEach(async symbol => {
 
         smas = await alphavantage.querySMA(symbol, 50, since);
         results = await batchPut(db.SMA50, smas);
+        */
 
         let emas = await alphavantage.queryEMA(symbol, 12, since);
         results = await batchPut(db.EMA12, emas);
@@ -82,7 +83,6 @@ symbols.forEach(async symbol => {
 
         emas = await alphavantage.queryEMA(symbol, 200, since);
         results = await batchPut(db.EMA200, emas);
-        */
 
         const macds = await alphavantage.queryMACD(symbol, since);
         results = await batchPut(db.MACD, macds);
