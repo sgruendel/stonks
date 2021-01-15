@@ -23,7 +23,7 @@
   },
   "homepage": "https://github.com/sgruendel/stonks#readme",
   "dependencies": {
-    "dayjs": "1.10.2",
+    "dayjs": "1.10.3",
     "dynamoose": "2.5.0",
     "node-fetch": "2.6.1",
     "p-queue": "6.6.2",
