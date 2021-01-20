@@ -58,40 +58,61 @@ symbols.forEach(async symbol => {
             // E.g. BYDDF and XIACF do not exist, so we just insert their symbol
             overview = { symbol: symbol };
         }
-        const result = await db.CompanyOverview.update(overview);
-        console.log('CompanyOverview', result);
+        db.CompanyOverview.update(overview);
 
-        let values = await alphavantage.queryDailyAdjusted(symbol, since);
-        let results = await batchPut(db.DailyAdjusted, values);
+        const dailyAdjusteds = await alphavantage.queryDailyAdjusted(symbol, since);
+        batchPut(db.DailyAdjusted, dailyAdjusteds);
 
-        /*
-        let smas = await alphavantage.querySMA(symbol, 15, since);
-        results = await batchPut(db.SMA15, smas);
-
-        smas = await alphavantage.querySMA(symbol, 50, since);
-        results = await batchPut(db.SMA50, smas);
-        */
-
-        let emas = await alphavantage.queryEMA(symbol, 12, since);
-        results = await batchPut(db.EMA12, emas);
-
-        emas = await alphavantage.queryEMA(symbol, 26, since);
-        results = await batchPut(db.EMA26, emas);
-
-        emas = await alphavantage.queryEMA(symbol, 50, since);
-        results = await batchPut(db.EMA50, emas);
-
-        emas = await alphavantage.queryEMA(symbol, 200, since);
-        results = await batchPut(db.EMA200, emas);
-
+        const sma15s = await alphavantage.querySMA(symbol, 15, since);
+        const sma50s = await alphavantage.querySMA(symbol, 50, since);
+        const ema12s = await alphavantage.queryEMA(symbol, 12, since);
+        const ema26s = await alphavantage.queryEMA(symbol, 26, since);
+        const ema50s = await alphavantage.queryEMA(symbol, 50, since);
+        const ema200s = await alphavantage.queryEMA(symbol, 200, since);
         const macds = await alphavantage.queryMACD(symbol, since);
-        results = await batchPut(db.MACD, macds);
-
         const rsis = await alphavantage.queryRSI(symbol, 14, since);
-        results = await batchPut(db.RSI, rsis);
-
         const bbands = await alphavantage.queryBBands(symbol, 20, since);
-        results = await batchPut(db.BBands, bbands);
+
+        let technicalIndicators = [];
+        for (let i = 0; i < dailyAdjusteds.length; i++) {
+            let ti = { symbol: symbol, date: dailyAdjusteds[i].date };
+
+            if (i < ema200s.length) {
+                if (sma15s[i].date !== dailyAdjusteds[i].date
+                    || sma50s[i].date !== dailyAdjusteds[i].date
+                    || ema12s[i].date !== dailyAdjusteds[i].date
+                    || ema26s[i].date !== dailyAdjusteds[i].date
+                    || ema50s[i].date !== dailyAdjusteds[i].date
+                    || ema200s[i].date !== dailyAdjusteds[i].date
+                    || macds[i].date !== dailyAdjusteds[i].date
+                    || rsis[i].date !== dailyAdjusteds[i].date
+                    || bbands[i].date !== dailyAdjusteds[i].date) {
+
+                    console.log('*********************** diff. date ' + symbol);
+                }
+            }
+            if (sma15s[i]) ti.sma15 = sma15s[i].sma;
+            if (sma50s[i]) ti.sma50 = sma50s[i].sma;
+            if (ema12s[i]) ti.ema12 = ema12s[i].ema;
+            if (ema26s[i]) ti.ema26 = ema26s[i].ema;
+            if (ema50s[i]) ti.ema50 = ema50s[i].ema;
+            if (ema200s[i]) ti.ema200 = ema200s[i].ema;
+            if (macds[i]) {
+                ti.macd = macds[i].macd;
+                ti.macdHist = macds[i].hist;
+                ti.macdSignal = macds[i].signal;
+            }
+            if (rsis[i]) ti.rsi = rsis[i].rsi;
+            if (bbands[i]) {
+                ti.bbandLower = bbands[i].lower;
+                ti.bbandUpper = bbands[i].upper;
+                ti.bbandMiddle = bbands[i].middle;
+            }
+
+            technicalIndicators.push(ti);
+        }
+
+        batchPut(db.TechnicalIndicators, technicalIndicators);
     } catch (err) {
         console.error(symbol, err);
     }

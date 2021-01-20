@@ -20,7 +20,7 @@ async function handleThroughput(callback, params, attempt = 1) {
             // see https://aws.amazon.com/de/blogs/architecture/exponential-backoff-and-jitter/
             const temp = Math.min(CAP, BACK_OFF * Math.pow(2, attempt));
             const sleep = temp / 2 + Math.floor(Math.random() * temp / 2);
-            console.log('*** sleeping for ' + sleep + ' on attempt ' + attempt + ', temp ' + temp);
+            console.log('*** DynamoDB: sleeping for ' + sleep + ' on attempt ' + attempt + ', temp ' + temp);
             await new Promise(resolve => setTimeout(resolve, sleep));
             return handleThroughput(callback, params, ++attempt);
         } else throw e;
@@ -112,7 +112,7 @@ exports.DailyAdjusted = dynamoose.model('DailyAdjusted',
         waitForActive: CONFIG_WAIT_FOR_ACTIVE,
     });
 
-exports.SMA15 = dynamoose.model('SMA15',
+exports.TechnicalIndicators = dynamoose.model('TechnicalIndicators',
     new dynamoose.Schema({
         symbol: {
             type: String,
@@ -125,240 +125,51 @@ exports.SMA15 = dynamoose.model('SMA15',
             required: true,
             rangeKey: true,
         },
-        sma: {
+        sma15: {
             type: Number,
             validate: (sma) => sma >= 0,
-            required: true,
         },
-    }, {
-        timestamps: true,
-    }),
-    {
-        create: CONFIG_CREATE,
-        prefix: CONFIG_PREFIX,
-        waitForActive: CONFIG_WAIT_FOR_ACTIVE,
-    });
-
-exports.SMA50 = dynamoose.model('SMA50',
-    new dynamoose.Schema({
-        symbol: {
-            type: String,
-            validate: (symbol) => symbol.length > 0,
-            required: true,
-        },
-        date: {
-            type: String,
-            validate: (date) => date.length > 0,
-            required: true,
-            rangeKey: true,
-        },
-        sma: {
+        sma50: {
             type: Number,
             validate: (sma) => sma >= 0,
-            required: true,
         },
-    }, {
-        timestamps: true,
-    }),
-    {
-        create: CONFIG_CREATE,
-        prefix: CONFIG_PREFIX,
-        waitForActive: CONFIG_WAIT_FOR_ACTIVE,
-    });
-
-exports.EMA12 = dynamoose.model('EMA12',
-    new dynamoose.Schema({
-        symbol: {
-            type: String,
-            validate: (symbol) => symbol.length > 0,
-            required: true,
-        },
-        date: {
-            type: String,
-            validate: (date) => date.length > 0,
-            required: true,
-            rangeKey: true,
-        },
-        ema: {
+        ema12: {
             type: Number,
             validate: (ema) => ema >= 0,
-            required: true,
         },
-    }, {
-        timestamps: true,
-    }),
-    {
-        create: CONFIG_CREATE,
-        prefix: CONFIG_PREFIX,
-        waitForActive: CONFIG_WAIT_FOR_ACTIVE,
-    });
-
-exports.EMA26 = dynamoose.model('EMA26',
-    new dynamoose.Schema({
-        symbol: {
-            type: String,
-            validate: (symbol) => symbol.length > 0,
-            required: true,
-        },
-        date: {
-            type: String,
-            validate: (date) => date.length > 0,
-            required: true,
-            rangeKey: true,
-        },
-        ema: {
+        ema26: {
             type: Number,
             validate: (ema) => ema >= 0,
-            required: true,
         },
-    }, {
-        timestamps: true,
-    }),
-    {
-        create: CONFIG_CREATE,
-        prefix: CONFIG_PREFIX,
-        waitForActive: CONFIG_WAIT_FOR_ACTIVE,
-    });
-
-exports.EMA50 = dynamoose.model('EMA50',
-    new dynamoose.Schema({
-        symbol: {
-            type: String,
-            validate: (symbol) => symbol.length > 0,
-            required: true,
-        },
-        date: {
-            type: String,
-            validate: (date) => date.length > 0,
-            required: true,
-            rangeKey: true,
-        },
-        ema: {
+        ema50: {
             type: Number,
             validate: (ema) => ema >= 0,
-            required: true,
         },
-    }, {
-        timestamps: true,
-    }),
-    {
-        create: CONFIG_CREATE,
-        prefix: CONFIG_PREFIX,
-        waitForActive: CONFIG_WAIT_FOR_ACTIVE,
-    });
-
-exports.EMA200 = dynamoose.model('EMA200',
-    new dynamoose.Schema({
-        symbol: {
-            type: String,
-            validate: (symbol) => symbol.length > 0,
-            required: true,
-        },
-        date: {
-            type: String,
-            validate: (date) => date.length > 0,
-            required: true,
-            rangeKey: true,
-        },
-        ema: {
+        ema200: {
             type: Number,
             validate: (ema) => ema >= 0,
-            required: true,
-        },
-    }, {
-        timestamps: true,
-    }),
-    {
-        create: CONFIG_CREATE,
-        prefix: CONFIG_PREFIX,
-        waitForActive: CONFIG_WAIT_FOR_ACTIVE,
-    });
-
-exports.MACD = dynamoose.model('MACD',
-    new dynamoose.Schema({
-        symbol: {
-            type: String,
-            validate: (symbol) => symbol.length > 0,
-            required: true,
-        },
-        date: {
-            type: String,
-            validate: (date) => date.length > 0,
-            required: true,
-            rangeKey: true,
         },
         macd: {
             type: Number,
-            required: true,
         },
-        hist: {
+        macdHist: {
             type: Number,
-            required: true,
         },
-        signal: {
+        macdSignal: {
             type: Number,
-            required: true,
-        },
-    }, {
-        timestamps: true,
-    }),
-    {
-        create: CONFIG_CREATE,
-        prefix: CONFIG_PREFIX,
-        waitForActive: CONFIG_WAIT_FOR_ACTIVE,
-    });
-
-exports.RSI = dynamoose.model('RSI',
-    new dynamoose.Schema({
-        symbol: {
-            type: String,
-            validate: (symbol) => symbol.length > 0,
-            required: true,
-        },
-        date: {
-            type: String,
-            validate: (date) => date.length > 0,
-            required: true,
-            rangeKey: true,
         },
         rsi: {
             type: Number,
             validate: (rsi) => rsi >= 0.0 && rsi <= 100.0,
-            required: true,
         },
-    }, {
-        timestamps: true,
-    }),
-    {
-        create: CONFIG_CREATE,
-        prefix: CONFIG_PREFIX,
-        waitForActive: CONFIG_WAIT_FOR_ACTIVE,
-    });
-
-exports.BBands = dynamoose.model('BBands',
-    new dynamoose.Schema({
-        symbol: {
-            type: String,
-            validate: (symbol) => symbol.length > 0,
-            required: true,
-        },
-        date: {
-            type: String,
-            validate: (date) => date.length > 0,
-            required: true,
-            rangeKey: true,
-        },
-        lower: {
+        bbandLower: {
             type: Number,
-            required: true,
         },
-        upper: {
+        bbandUpper: {
             type: Number,
-            required: true,
         },
-        middle: {
+        bbandMiddle: {
             type: Number,
-            required: true,
         },
     }, {
         timestamps: true,
