@@ -4,8 +4,11 @@ const fetch = require('node-fetch');
 const { default: PQueue } = require('p-queue');
 const querystring = require('querystring');
 
-// Request limit of 5 per minute for Alpha Vantage; max. 500 per day not considered here
-const queue = new PQueue({ concurrency: 5, interval: 60 * 1000, intervalCap: 5 });
+const API_KEY = process.env.ALPHAVANTAGE_API_KEY;
+const INTERVAL_CAP = Number(process.env.ALPHAVANTAGE_INTERVAL_CAP) || 5;
+
+// Request limit of 5 per minute for Alpha Vantage with free key; max. 500 per day not considered here
+const queue = new PQueue({ concurrency: 5, interval: 60 * 1000, intervalCap: INTERVAL_CAP });
 
 const BASE_URL = 'https://www.alphavantage.co/';
 const FULL = 'full';
@@ -23,7 +26,10 @@ const TA_RSI = 'Technical Analysis: RSI';
 
 var exports = module.exports = {};
 
-function getApiKey(symbol) {
+function getApiKey() {
+    if (API_KEY) return API_KEY;
+
+    // use random free key
     const min = 1;
     const max = 9999999;
     const apiKey = Math.floor(Math.random() * (max - min)) + min;
@@ -45,7 +51,7 @@ async function handleThroughput(callback, params, attempt = 1) {
         // see https://aws.amazon.com/de/blogs/architecture/exponential-backoff-and-jitter/
         const temp = Math.min(CAP, BACK_OFF * Math.pow(2, attempt));
         const sleep = temp / 2 + Math.floor(Math.random() * temp / 2);
-        console.log('*** sleeping for ' + sleep + ' on attempt ' + attempt + ', temp ' + temp);
+        console.log('*** Alphavantage: sleeping for ' + sleep + ' on attempt ' + attempt + ', temp ' + temp);
         await new Promise(resolve => setTimeout(resolve, sleep));
         return handleThroughput(callback, params, ++attempt);
     }
@@ -62,7 +68,6 @@ async function query(qs) {
 }
 
 async function queryTechnicalIndicators(qs, resultKey) {
-    //const result = await query(qs);
     const result = await handleThroughput(query, qs);
     if (result[ERROR_MESSAGE]) {
         console.error('error message for ' + resultKey + ':', result);
@@ -89,7 +94,7 @@ exports.queryCompanyOverview = async(symbol) => {
     const qs = {
         function: 'OVERVIEW',
         symbol: symbol,
-        apikey: getApiKey(symbol),
+        apikey: getApiKey(),
     };
     const result = await handleThroughput(query, qs);
     const overview = {};
@@ -104,7 +109,7 @@ exports.queryDailyAdjusted = async(symbol, since) => {
         function: 'TIME_SERIES_DAILY_ADJUSTED',
         symbol: symbol,
         outputsize: FULL,
-        apikey: getApiKey(symbol),
+        apikey: getApiKey(),
     };
     const values = await queryTechnicalIndicators(qs, TS_DAILY);
     return values.filter(value => value.date >= since).map(value => {
@@ -130,7 +135,7 @@ exports.querySMA = async(symbol, timePeriod, since) => {
         interval: INTERVAL,
         time_period: timePeriod,
         series_type: SERIES_TYPE,
-        apikey: getApiKey(symbol),
+        apikey: getApiKey(),
     };
     const smas = await queryTechnicalIndicators(qs, TA_SMA);
     return smas.filter(sma => sma.date >= since).map(sma => {
@@ -145,7 +150,7 @@ exports.queryEMA = async(symbol, timePeriod, since) => {
         interval: INTERVAL,
         time_period: timePeriod,
         series_type: SERIES_TYPE,
-        apikey: getApiKey(symbol),
+        apikey: getApiKey(),
     };
     const emas = await queryTechnicalIndicators(qs, TA_EMA);
     return emas.filter(ema => ema.date >= since).map(ema => {
@@ -159,7 +164,7 @@ exports.queryMACD = async(symbol, since) => {
         symbol: symbol,
         interval: INTERVAL,
         series_type: SERIES_TYPE,
-        apikey: getApiKey(symbol),
+        apikey: getApiKey(),
     };
     const macds = await queryTechnicalIndicators(qs, TA_MACD);
     return macds.filter(macd => macd.date >= since).map(macd => {
@@ -180,7 +185,7 @@ exports.queryRSI = async(symbol, timePeriod, since) => {
         interval: INTERVAL,
         time_period: timePeriod,
         series_type: SERIES_TYPE,
-        apikey: getApiKey(symbol),
+        apikey: getApiKey(),
     };
     const rsis = await queryTechnicalIndicators(qs, TA_RSI);
     return rsis.filter(rsi => rsi.date >= since).map(rsi => {
@@ -199,7 +204,7 @@ exports.queryBBands = async(symbol, timePeriod, since) => {
         interval: INTERVAL,
         time_period: timePeriod,
         series_type: SERIES_TYPE,
-        apikey: getApiKey(symbol),
+        apikey: getApiKey(),
     };
     const bbandsArr = await queryTechnicalIndicators(qs, TA_BBANDS);
     return bbandsArr.filter(bbands => bbands.date >= since).map(bbands => {
