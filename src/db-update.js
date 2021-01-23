@@ -73,6 +73,9 @@ symbols.forEach(async symbol => {
         db.CompanyOverview.update(overview);
 
         const dailyAdjusteds = await alphavantage.queryDailyAdjusted(symbol, since);
+        dailyAdjusteds.filter(da => da.splitCoefficient !== 1).forEach(da => {
+            logger.info(da.symbol + ' split on ' + da.date + ' ' + da.splitCoefficient + ':1');
+        });
         batchPut(db.DailyAdjusted, dailyAdjusteds);
 
         const sma15s = await alphavantage.querySMA(symbol, 15, since);
