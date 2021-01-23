@@ -3,6 +3,17 @@
 const fetch = require('node-fetch');
 const { default: PQueue } = require('p-queue');
 const querystring = require('querystring');
+const winston = require('winston');
+
+const logger = winston.createLogger({
+    level: process.env.LOG_LEVEL || 'info',
+    transports: [
+        new winston.transports.Console({
+            format: winston.format.simple(),
+        }),
+    ],
+    exitOnError: false,
+});
 
 const API_KEY = process.env.ALPHAVANTAGE_API_KEY;
 const INTERVAL_CAP = Number(process.env.ALPHAVANTAGE_INTERVAL_CAP) || 5;
@@ -51,7 +62,7 @@ async function handleThroughput(callback, params, attempt = 1) {
         // see https://aws.amazon.com/de/blogs/architecture/exponential-backoff-and-jitter/
         const temp = Math.min(CAP, BACK_OFF * Math.pow(2, attempt));
         const sleep = temp / 2 + Math.floor(Math.random() * temp / 2);
-        console.log('*** Alphavantage: sleeping for ' + sleep + ' on attempt ' + attempt + ', temp ' + temp);
+        logger.debug('Alphavantage: sleeping for ' + sleep + ' on attempt ' + attempt + ', temp ' + temp);
         await new Promise(resolve => setTimeout(resolve, sleep));
         return handleThroughput(callback, params, ++attempt);
     }
@@ -59,24 +70,22 @@ async function handleThroughput(callback, params, attempt = 1) {
 }
 
 async function query(qs) {
-    // console.log('queue size/pending: ' + queue.size, queue.pending);
-    console.log('calling ' + querystring.stringify(qs));
+    logger.debug('calling ' + querystring.stringify(qs));
     const response = await queue.add(() => fetch(BASE_URL + 'query?' + querystring.stringify(qs)));
-    console.log('got     ' + querystring.stringify(qs));
-    console.log('queue size/pending: ' + queue.size, queue.pending);
+    logger.debug('queue size/pending: ' + queue.size, queue.pending);
     return response.json();
 }
 
 async function queryTechnicalIndicators(qs, resultKey) {
     const result = await handleThroughput(query, qs);
     if (result[ERROR_MESSAGE]) {
-        console.error('error message for ' + resultKey + ':', result);
+        logger.error('error message for ' + resultKey + ':', result);
         throw new Error(result[ERROR_MESSAGE]);
     } else if (result[NOTE]) {
-        console.error('note for ' + resultKey + ':', result);
+        logger.error('note for ' + resultKey + ':', result);
         throw new Error(result[NOTE]);
     } else if (!result[resultKey]) {
-        console.error(result);
+        logger.error(result);
         throw new Error('Invalid reponse for ' + JSON.stringify(qs));
     }
 

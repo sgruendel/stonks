@@ -3,6 +3,18 @@
 const dynamoose = require('dynamoose');
 dynamoose.aws.sdk.config.update({ region: 'eu-west-1' });
 
+const winston = require('winston');
+
+const logger = winston.createLogger({
+    level: process.env.LOG_LEVEL || 'info',
+    transports: [
+        new winston.transports.Console({
+            format: winston.format.simple(),
+        }),
+    ],
+    exitOnError: false,
+});
+
 const CONFIG_CREATE = false;
 const CONFIG_PREFIX = 'stonks-';
 const CONFIG_WAIT_FOR_ACTIVE = false;
@@ -20,7 +32,7 @@ async function handleThroughput(callback, params, attempt = 1) {
             // see https://aws.amazon.com/de/blogs/architecture/exponential-backoff-and-jitter/
             const temp = Math.min(CAP, BACK_OFF * Math.pow(2, attempt));
             const sleep = temp / 2 + Math.floor(Math.random() * temp / 2);
-            console.log('*** DynamoDB: sleeping for ' + sleep + ' on attempt ' + attempt + ', temp ' + temp);
+            logger.debug('DynamoDB: sleeping for ' + sleep + ' on attempt ' + attempt + ', temp ' + temp);
             await new Promise(resolve => setTimeout(resolve, sleep));
             return handleThroughput(callback, params, ++attempt);
         } else throw e;

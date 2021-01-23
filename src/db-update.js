@@ -1,5 +1,17 @@
 'use strict';
 
+const winston = require('winston');
+
+const logger = winston.createLogger({
+    level: process.env.LOG_LEVEL || 'info',
+    transports: [
+        new winston.transports.Console({
+            format: winston.format.simple(),
+        }),
+    ],
+    exitOnError: false,
+});
+
 const alphavantage = require('./alphavantage');
 const db = require('./db');
 
@@ -20,10 +32,10 @@ async function batchPut(model, documents, attempt = 1) {
         }
         const results = await Promise.all(promises);
         const unprocessedResults = results.filter(result => result.unprocessedItems.length > 0);
-        if (unprocessedResults.length === 0 && attempt > 1) {
-            console.log('succeeded for', documents.length, 'documents for', model.Model.name, documents[0].symbol, 'in attempt', attempt);
+        if (unprocessedResults.length === 0) {
+            logger.debug('put succeeded for', documents.length, 'documents for', model.Model.name, documents[0].symbol, 'in attempt', attempt);
         } else if (unprocessedResults.length > 0) {
-            console.log('retrying', unprocessedResults.length, 'failed put(s) for', model.Model.name, unprocessedResults[0].unprocessedItems[0].symbol);
+            logger.debug('retrying', unprocessedResults.length, 'failed put(s) for', model.Model.name, unprocessedResults[0].unprocessedItems[0].symbol);
             let unprocessedDocumentCount = 0;
             unprocessedResults.forEach(result => (unprocessedDocumentCount += result.unprocessedItems.length));
 
@@ -36,7 +48,7 @@ async function batchPut(model, documents, attempt = 1) {
         return results;
     } catch (err) {
         if (err.retryable) {
-            console.log('retrying for ' + model.Model.name + ': ' + err.message);
+            logger.debug('retrying put for ' + model.Model.name + ': ' + err.message);
             return batchPut(model, documents, ++attempt);
         }
         throw err;
@@ -47,10 +59,10 @@ const args = process.argv.slice(2);
 const symbols = (args[0] === '*') ? ALL_SYMBOLS : args[0].split(',');
 const since = args[1] || '2018-01-01';
 
-console.log('getting data for ' + symbols + ' since ' + since + ' ...');
+logger.info('getting data for ' + symbols + ' since ' + since + ' ...');
 
 symbols.forEach(async symbol => {
-    console.log(symbol);
+    logger.info(symbol + ' ...');
 
     try {
         let overview = await alphavantage.queryCompanyOverview(symbol);
@@ -88,7 +100,7 @@ symbols.forEach(async symbol => {
                     || rsis[i].date !== dailyAdjusteds[i].date
                     || bbands[i].date !== dailyAdjusteds[i].date) {
 
-                    console.log('*********************** diff. date ' + symbol);
+                    throw new Error('diff. date ' + symbol);
                 }
             }
             if (sma15s[i]) ti.sma15 = sma15s[i].sma;
@@ -114,6 +126,6 @@ symbols.forEach(async symbol => {
 
         batchPut(db.TechnicalIndicators, technicalIndicators);
     } catch (err) {
-        console.error(symbol, err);
+        logger.error(symbol, err);
     }
 });
