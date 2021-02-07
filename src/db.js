@@ -141,11 +141,27 @@ exports.TechnicalIndicators = dynamoose.model('TechnicalIndicators',
             type: Number,
             validate: (sma) => sma >= 0,
         },
+        sma20: {
+            type: Number,
+            validate: (sma) => sma >= 0,
+        },
         sma50: {
             type: Number,
             validate: (sma) => sma >= 0,
         },
+        sma100: {
+            type: Number,
+            validate: (sma) => sma >= 0,
+        },
+        sma200: {
+            type: Number,
+            validate: (sma) => sma >= 0,
+        },
         ema12: {
+            type: Number,
+            validate: (ema) => ema >= 0,
+        },
+        ema20: {
             type: Number,
             validate: (ema) => ema >= 0,
         },
@@ -154,6 +170,10 @@ exports.TechnicalIndicators = dynamoose.model('TechnicalIndicators',
             validate: (ema) => ema >= 0,
         },
         ema50: {
+            type: Number,
+            validate: (ema) => ema >= 0,
+        },
+        ema100: {
             type: Number,
             validate: (ema) => ema >= 0,
         },

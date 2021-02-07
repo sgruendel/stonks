@@ -79,10 +79,15 @@ symbols.forEach(async symbol => {
         batchPut(db.DailyAdjusted, dailyAdjusteds);
 
         const sma15s = await alphavantage.querySMA(symbol, 15, since);
+        const sma20s = await alphavantage.querySMA(symbol, 20, since);
         const sma50s = await alphavantage.querySMA(symbol, 50, since);
+        const sma100s = await alphavantage.querySMA(symbol, 100, since);
+        const sma200s = await alphavantage.querySMA(symbol, 200, since);
         const ema12s = await alphavantage.queryEMA(symbol, 12, since);
+        const ema20s = await alphavantage.queryEMA(symbol, 20, since);
         const ema26s = await alphavantage.queryEMA(symbol, 26, since);
         const ema50s = await alphavantage.queryEMA(symbol, 50, since);
+        const ema100s = await alphavantage.queryEMA(symbol, 100, since);
         const ema200s = await alphavantage.queryEMA(symbol, 200, since);
         const macds = await alphavantage.queryMACD(symbol, since);
         const rsis = await alphavantage.queryRSI(symbol, 14, since);
@@ -92,12 +97,17 @@ symbols.forEach(async symbol => {
         for (let i = 0; i < dailyAdjusteds.length; i++) {
             let ti = { symbol: symbol, date: dailyAdjusteds[i].date };
 
-            if (i < ema200s.length) {
+            if (i < sma200s.length) {
                 if (sma15s[i].date !== dailyAdjusteds[i].date
+                    || sma20s[i].date !== dailyAdjusteds[i].date
                     || sma50s[i].date !== dailyAdjusteds[i].date
+                    || sma100s[i].date !== dailyAdjusteds[i].date
+                    || sma200s[i].date !== dailyAdjusteds[i].date
                     || ema12s[i].date !== dailyAdjusteds[i].date
+                    || ema20s[i].date !== dailyAdjusteds[i].date
                     || ema26s[i].date !== dailyAdjusteds[i].date
                     || ema50s[i].date !== dailyAdjusteds[i].date
+                    || ema100s[i].date !== dailyAdjusteds[i].date
                     || ema200s[i].date !== dailyAdjusteds[i].date
                     || macds[i].date !== dailyAdjusteds[i].date
                     || rsis[i].date !== dailyAdjusteds[i].date
@@ -107,10 +117,15 @@ symbols.forEach(async symbol => {
                 }
             }
             if (sma15s[i]) ti.sma15 = sma15s[i].sma;
+            if (sma20s[i]) ti.sma20 = sma20s[i].sma;
             if (sma50s[i]) ti.sma50 = sma50s[i].sma;
+            if (sma100s[i]) ti.sma100 = sma100s[i].sma;
+            if (sma200s[i]) ti.sma200 = sma200s[i].sma;
             if (ema12s[i]) ti.ema12 = ema12s[i].ema;
+            if (ema20s[i]) ti.ema20 = ema20s[i].ema;
             if (ema26s[i]) ti.ema26 = ema26s[i].ema;
             if (ema50s[i]) ti.ema50 = ema50s[i].ema;
+            if (ema100s[i]) ti.ema100 = ema100s[i].ema;
             if (ema200s[i]) ti.ema200 = ema200s[i].ema;
             if (macds[i]) {
                 ti.macd = macds[i].macd;
