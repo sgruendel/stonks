@@ -76,6 +76,10 @@ symbols.forEach(async symbol => {
         dailyAdjusteds.filter(da => da.splitCoefficient !== 1).forEach(da => {
             logger.info(da.symbol + ' split on ' + da.date + ' ' + da.splitCoefficient + ':1');
         });
+        if (dailyAdjusteds.length === 0) {
+            logger.info('no updates for ' + symbol);
+            return;
+        }
         batchPut(db.DailyAdjusted, dailyAdjusteds);
 
         const sma15s = await alphavantage.querySMA(symbol, 15, since);
