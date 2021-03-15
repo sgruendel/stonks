@@ -28,6 +28,9 @@ ALL_SYMBOLS.forEach(symbol => { depot[symbol] = { amount: 0, avgSharePrice: 0.0,
 let transactionFees = 0;
 let taxes = 0;
 
+// Has symbol closed below sma50 previously?
+let closedBelowSma50 = [];
+
 const FMT = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 });
 
 const filter = (symbol, date) => {
@@ -99,6 +102,7 @@ async function sell(date, symbol, dailyAdjusted) {
         if (sellPrice > depot[symbol].avgSharePrice) {
             const profit = (depot[symbol].amount * sellPrice) - (depot[symbol].amount * depot[symbol].avgSharePrice);
             const tax = (profit > 0) ? profit * TAX_RATE : 0.0;
+            // TODO get tax back when selling with loss
             cash += (depot[symbol].amount * sellPrice) - TRANSACTION_FEE - tax;
             transactionFees += TRANSACTION_FEE;
             taxes += tax;
@@ -140,13 +144,14 @@ function buyItMacdHist(tiBefore, tiCurrent) {
         if (tiBefore.macdHist < 0 && tiCurrent.macdHist > 0) {
             // TODO only buy if MACD < 0
             // TODO don't buy if RSI <50
-            // TODO only if above EMA50/SMA50/SMA200?
+            // TODO only if above SMA50
             return true;//tiCurrent.macd < 2.0 && tiCurrent.rsi < 50.0*/;
         }
     }
 }
 
 function sellItMacdHist(tiBefore, tiCurrent) {
+    // TODO sell if below SMA50?
     if (tiBefore.macd && tiCurrent.macd) {
         if (tiBefore.macdHist > 0 && tiCurrent.macdHist < 0) {
             // TODO only sell if MACD > 0
@@ -156,7 +161,7 @@ function sellItMacdHist(tiBefore, tiCurrent) {
     }
 }
 
-async function trade(symbol, date, buyItFn, sellItFn) {
+async function trade(symbol, date, buyItFn, sellItFn, strategy) {
     const dailyAdjustedP = getDailyAdjustedFor(symbol, date);
     const tisP = getTechnicalIndicatorsFor(symbol, date);
 
@@ -167,20 +172,38 @@ async function trade(symbol, date, buyItFn, sellItFn) {
     if (dailyAdjusted && date.isSame(dailyAdjusted.date) && tiBefore && tiCurrent) {
         if (tiBefore.rsi && tiCurrent.rsi) {
             if (tiBefore.rsi < 30.0 && tiCurrent.rsi >= 30.0) {
-                logger.info('RSI: ' + symbol + ' leaving oversold on ' + date.format(DATE_FORMAT));
+                logger.info('RSI: ' + symbol + ' bullish, leaving oversold on ' + date.format(DATE_FORMAT));
             } else if (tiBefore.rsi > 70.0 && tiCurrent.rsi <= 70.0 && depot[symbol].amount > 0) {
-                logger.info('RSI: ' + symbol + ' leaving overbought on ' + date.format(DATE_FORMAT));
+                logger.info('RSI: ' + symbol + ' bearish, leaving overbought on ' + date.format(DATE_FORMAT));
             }
+        }
+
+        if (tiBefore.sma200 && tiCurrent.sma200) {
+            if (tiBefore.sma50 < tiBefore.sma200 && tiCurrent.sma50 > tiCurrent.sma200) {
+                logger.info('GoldenCross: ' + symbol + ' bullish on ' + date.format(DATE_FORMAT));
+            } else if (tiBefore.sma50 > tiBefore.sma200 && tiCurrent.sma50 < tiCurrent.sma200) {
+                logger.info('GoldenCross: ' + symbol + ' bearish on ' + date.format(DATE_FORMAT));
+            }
+        }
+
+        if (dailyAdjusted.adjustedClose < tiCurrent.sma50) {
+            if (!closedBelowSma50[symbol]) {
+                // only log first one of consecutive drops below sma50
+                logger.info('SMA50: ' + symbol + ' bearish on ' + date.format(DATE_FORMAT));
+            }
+            closedBelowSma50[symbol] = true;
+        } else {
+            closedBelowSma50[symbol] = false;
         }
 
         const buyIt = buyItFn(tiBefore, tiCurrent);
         const sellIt = sellItFn(tiBefore, tiCurrent);
         // TODO Gewinnmitnahme / stop loss via ATR: https://broker-test.de/trading-news/modifizierter-macd-und-die-average-true-range-35691/
         if (buyIt && !sellIt) {
-            logger.info('MACD: buy ' + symbol + ' on ' + date.format(DATE_FORMAT));
+            logger.info(strategy + ': buy ' + symbol + ' on ' + date.format(DATE_FORMAT));
             return buy(date, symbol, dailyAdjusted);
         } else if (sellIt && !buyIt) {
-            logger.info('MACD: sell ' + symbol + ' on ' + date.format(DATE_FORMAT));
+            logger.info(strategy + ': sell ' + symbol + ' on ' + date.format(DATE_FORMAT));
             return sell(date, symbol, dailyAdjusted);
         } else if (sellIt && buyIt) {
             // shouldn't really happen
@@ -199,7 +222,7 @@ async function emulateTrades(fromDate, toDate, symbols) {
             // only trade Mon-Fri
             const trades = symbols.map(async symbol => {
                 try {
-                    return await trade(symbol, date, buyItMacdHist, sellItMacdHist);
+                    return await trade(symbol, date, buyItMacdHist, sellItMacdHist, 'MACD');
                 } catch (err) {
                     logger.error(date.format(DATE_FORMAT) + ' ' + symbol, err);
                 }
