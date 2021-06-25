@@ -20,7 +20,7 @@ const DATE_FORMAT = 'YYYY-MM-DD';
 
 let cash = 1000000;
 const MIN_BUY = 1000;
-const MAX_BUY = 7000;
+const MAX_BUY = 5000;
 const TRANSACTION_FEE = 7.0;
 const TAX_RATE = 0.25;
 let depot = [];
