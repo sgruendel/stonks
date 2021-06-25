@@ -182,7 +182,7 @@ async function trade(symbol, date, buyItFn, sellItFn, strategy) {
             if (tiBefore.sma50 < tiBefore.sma200 && tiCurrent.sma50 > tiCurrent.sma200) {
                 logger.info('GoldenCross: ' + symbol + ' bullish on ' + date.format(DATE_FORMAT));
             } else if (tiBefore.sma50 > tiBefore.sma200 && tiCurrent.sma50 < tiCurrent.sma200) {
-                logger.info('GoldenCross: ' + symbol + ' bearish on ' + date.format(DATE_FORMAT));
+                logger.info('DeathCross: ' + symbol + ' bearish on ' + date.format(DATE_FORMAT));
             }
         }
 
@@ -227,6 +227,7 @@ async function emulateTrades(fromDate, toDate, symbols) {
                     logger.error(date.format(DATE_FORMAT) + ' ' + symbol, err);
                 }
             });
+            logger.info(''); // empty line to separate days
             await Promise.all(trades);
         }
 
