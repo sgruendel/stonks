@@ -23,17 +23,17 @@
   },
   "homepage": "https://github.com/sgruendel/stonks#readme",
   "dependencies": {
-    "dayjs": "1.10.6",
-    "dynamoose": "2.8.1",
-    "node-fetch": "^2.6.1",
+    "dayjs": "1.10.7",
+    "dynamoose": "2.8.2",
+    "node-fetch": "3.0.0",
     "p-queue": "^6.6.2",
     "winston": "3.3.3"
   },
   "devDependencies": {
     "chai": "4.3.4",
-    "eslint": "7.32.0",
+    "eslint": "8.0.1",
     "eslint-config-strongloop": "2.1.0",
-    "mocha": "9.1.1",
+    "mocha": "9.1.3",
     "nyc": "15.1.0"
   },
   "eslintConfig": {
