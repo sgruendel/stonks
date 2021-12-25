@@ -1,6 +1,8 @@
 'use strict';
 
 const fetch = require('node-fetch');
+const http = require('http');
+const https = require('https');
 const { default: PQueue } = require('p-queue');
 const querystring = require('querystring');
 const winston = require('winston');
@@ -14,6 +16,18 @@ const logger = winston.createLogger({
     ],
     exitOnError: false,
 });
+
+const httpAgent = new http.Agent({
+	keepAlive: true
+});
+const httpsAgent = new https.Agent({
+	keepAlive: true
+});
+const options = {
+	agent: _parsedURL => {
+		return (_parsedURL.protocol === 'http:') ? httpAgent : httpsAgent;
+	}
+};
 
 const API_KEY = process.env.ALPHAVANTAGE_API_KEY;
 const INTERVAL_CAP = Number(process.env.ALPHAVANTAGE_INTERVAL_CAP) || 5;
@@ -71,8 +85,8 @@ async function handleThroughput(callback, params, attempt = 1) {
 
 async function query(qs) {
     logger.debug('calling ' + querystring.stringify(qs));
-    const response = await queue.add(() => fetch(BASE_URL + 'query?' + querystring.stringify(qs)));
-    logger.debug('queue size/pending: ' + queue.size, queue.pending);
+    const response = await queue.add(() => fetch(BASE_URL + 'query?' + querystring.stringify(qs), options));
+    logger.debug('queue size/pending: ' + queue.size + '/' + queue.pending);
     return response.json();
 }
 
@@ -85,7 +99,7 @@ async function queryTechnicalIndicators(qs, resultKey) {
         logger.error('note for ' + resultKey + ':', result);
         throw new Error(result[NOTE]);
     } else if (!result[resultKey]) {
-        logger.error(result);
+        logger.error(JSON.stringify(result));
         throw new Error('Invalid reponse for ' + JSON.stringify(qs));
     }
 
