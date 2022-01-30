@@ -18,15 +18,15 @@ const logger = winston.createLogger({
 });
 
 const httpAgent = new http.Agent({
-	keepAlive: true
+    keepAlive: true,
 });
 const httpsAgent = new https.Agent({
-	keepAlive: true
+    keepAlive: true,
 });
 const options = {
-	agent: _parsedURL => {
-		return (_parsedURL.protocol === 'http:') ? httpAgent : httpsAgent;
-	}
+    agent: _parsedURL => {
+        return (_parsedURL.protocol === 'http:') ? httpAgent : httpsAgent;
+    },
 };
 
 const API_KEY = process.env.ALPHAVANTAGE_API_KEY;
