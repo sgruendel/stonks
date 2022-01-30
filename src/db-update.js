@@ -1,5 +1,6 @@
 'use strict';
 
+const pMap = require('p-map');
 const winston = require('winston');
 
 const logger = winston.createLogger({
@@ -55,22 +56,21 @@ async function batchPut(model, documents, attempt = 1) {
     }
 }
 
-const args = process.argv.slice(2);
-const symbols = (args[0] === '*') ? ALL_SYMBOLS : args[0].split(',');
-const since = args[1] || '2018-01-01';
+async function updateSymbol(symbolSince) {
+    return updateSymbolAsync(symbolSince.symbol, symbolSince.since);
+}
 
-logger.info('getting data for ' + symbols + ' since ' + since + ' ...');
-
-symbols.forEach(async symbol => {
+async function updateSymbolAsync(symbol, since) {
     logger.info(symbol + ' ...');
 
+    let allPromises = [];
     try {
         let overview = await alphavantage.queryCompanyOverview(symbol);
         if (!overview.symbol) {
             // E.g. BYDDF and XIACF do not exist, so we just insert their symbol
             overview = { symbol: symbol };
         }
-        db.CompanyOverview.update(overview);
+        allPromises.push(db.CompanyOverview.update(overview));
 
         const dailyAdjusteds = await alphavantage.queryDailyAdjusted(symbol, since);
         dailyAdjusteds.filter(da => da.splitCoefficient !== 1).forEach(da => {
@@ -80,7 +80,7 @@ symbols.forEach(async symbol => {
             logger.info('no updates for ' + symbol);
             return;
         }
-        batchPut(db.DailyAdjusted, dailyAdjusteds);
+        allPromises.push(batchPut(db.DailyAdjusted, dailyAdjusteds));
 
         const sma15s = await alphavantage.querySMA(symbol, 15, since);
         const sma20s = await alphavantage.querySMA(symbol, 20, since);
@@ -146,8 +146,19 @@ symbols.forEach(async symbol => {
             technicalIndicators.push(ti);
         }
 
-        batchPut(db.TechnicalIndicators, technicalIndicators);
+        allPromises.push(batchPut(db.TechnicalIndicators, technicalIndicators));
+        return Promise.all(allPromises);
     } catch (err) {
         logger.error(symbol, err);
     }
+}
+
+const args = process.argv.slice(2);
+const symbols = (args[0] === '*') ? ALL_SYMBOLS : args[0].split(',');
+const since = args[1] || '2018-01-01';
+
+logger.info('getting data for ' + symbols + ' since ' + since + ' ...');
+
+pMap(symbols.map(symbol => ({ symbol, since })), updateSymbol, { concurrency: 1, stopOnError: false }).then(() => {
+    logger.info('done, waiting to finish ...');
 });
