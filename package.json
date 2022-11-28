@@ -24,10 +24,10 @@
   "homepage": "https://github.com/sgruendel/stonks#readme",
   "dependencies": {
     "dayjs": "1.11.6",
-    "dynamoose": "2.8.5",
-    "node-fetch": "^2.6.6",
-    "p-map": "^4.0.0",
-    "p-queue": "^6.6.2",
+    "dynamoose": "3.1.0",
+    "node-fetch": "^3.3.0",
+    "p-map": "^5.5.0",
+    "p-queue": "^7.3.0",
     "winston": "3.8.2"
   },
   "devDependencies": {
