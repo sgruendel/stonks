@@ -1,7 +1,8 @@
 'use strict';
 
 const dynamoose = require('dynamoose');
-dynamoose.aws.sdk.config.update({ region: 'eu-west-1' });
+const ddb = new dynamoose.aws.ddb.DynamoDB({ region: 'eu-west-1' });
+dynamoose.aws.ddb.set(ddb);
 
 const winston = require('winston');
 
@@ -27,7 +28,7 @@ async function handleThroughput(callback, params, attempt = 1) {
     try {
         return await callback(params);
     } catch (e) {
-        if (e.code === 'ProvisionedThroughputExceededException') {
+        if (e.__type && e.__type.endsWith('#ProvisionedThroughputExceededException')) {
             // exponential backoff with jitter,
             // see https://aws.amazon.com/de/blogs/architecture/exponential-backoff-and-jitter/
             const temp = Math.min(CAP, BACK_OFF * Math.pow(2, attempt));
