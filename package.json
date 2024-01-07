@@ -1,7 +1,7 @@
 {
   "name": "stonks",
   "version": "1.0.0",
-  "description": "Stocks and Technical Indicators",
+  "description": "Stocks and Technical Indicators using Amazon DynamoDB",
   "main": "index.js",
   "scripts": {
     "test:unit": "nyc --reporter=lcov --reporter=text mocha --timeout=65000 test/unit/*",
@@ -24,14 +24,14 @@
   "homepage": "https://github.com/sgruendel/stonks#readme",
   "dependencies": {
     "dayjs": "^1.11.9",
-    "dynamoose": "^3.2.0",
-    "node-fetch": "^2.6.12",
+    "dynamoose": "^4.0.0",
+    "node-fetch": "^2.7.0",
     "p-map": "^4.0.0",
     "p-queue": "^6.6.2",
     "winston": "^3.10.0"
   },
   "devDependencies": {
-    "chai": "^4.3.7",
+    "chai": "^4.4.0",
     "eslint": "^8.46.0",
     "eslint-config-strongloop": "^2.1.0",
     "mocha": "^10.2.0",
@@ -39,10 +39,11 @@
   },
   "eslintConfig": {
     "parserOptions": {
-      "ecmaVersion": 2017
+      "ecmaVersion": 2023
     },
     "extends": "strongloop",
     "env": {
+      "es2023": true,
       "es6": true,
       "node": true,
       "mocha": true
