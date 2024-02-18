@@ -28,10 +28,11 @@ const options = {
 };
 
 const API_KEY = process.env.ALPHAVANTAGE_API_KEY;
+const INTERVAL_SECS = Number(process.env.ALPHAVANTAGE_INTERVAL_SECS) || 60;
 const INTERVAL_CAP = Number(process.env.ALPHAVANTAGE_INTERVAL_CAP) || 5;
 
 // Request limit of 5 per minute for Alpha Vantage with free key; max. 500 per day not considered here
-const queue = new PQueue({ concurrency: 5, interval: 60 * 1000, intervalCap: INTERVAL_CAP });
+const queue = new PQueue({ concurrency: 5, interval: INTERVAL_SECS * 1000, intervalCap: INTERVAL_CAP });
 
 const BASE_URL = 'https://www.alphavantage.co/';
 const FULL = 'full';
