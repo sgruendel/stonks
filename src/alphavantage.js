@@ -87,7 +87,7 @@ async function query(qs) {
     logger.debug('calling ' + querystring.stringify(qs));
     const response = await queue.add(() => fetch(BASE_URL + 'query?' + querystring.stringify(qs), options));
     logger.debug('queue size/pending: ' + queue.size + '/' + queue.pending);
-    return response.json();
+    return response && response.json();
 }
 
 async function queryTechnicalIndicators(qs, resultKey) {
