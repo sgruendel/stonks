@@ -1,7 +1,6 @@
-'use strict';
-
-const pMap = require('p-map');
-const winston = require('winston');
+import fs from 'fs';
+import pMap from 'p-map';
+import winston from 'winston';
 
 const logger = winston.createLogger({
     level: process.env.LOG_LEVEL || 'info',
@@ -13,10 +12,10 @@ const logger = winston.createLogger({
     exitOnError: false,
 });
 
-const alphavantage = require('./alphavantage');
-const db = require('./db');
+import * as alphavantage from './alphavantage.js';
+import * as db from './db.js';
 
-const ALL_SYMBOLS = require('./symbols.json');
+const ALL_SYMBOLS = JSON.parse(fs.readFileSync('src/symbols.json'));
 
 async function batchPut(model, documents, attempt = 1) {
     const BATCH_SIZE = 25;
@@ -26,24 +25,37 @@ async function batchPut(model, documents, attempt = 1) {
         const promises = [];
         while (begin < documents.length) {
             promises.push(
-                db.handleThroughput(
-                    docs => model.batchPut(docs),
-                    documents.slice(begin, begin + BATCH_SIZE)));
+                db.handleThroughput((docs) => model.batchPut(docs), documents.slice(begin, begin + BATCH_SIZE)),
+            );
             begin += BATCH_SIZE;
         }
         const results = await Promise.all(promises);
-        const unprocessedResults = results.filter(result => result.unprocessedItems.length > 0);
+        const unprocessedResults = results.filter((result) => result.unprocessedItems.length > 0);
         if (unprocessedResults.length === 0) {
-            logger.debug('put succeeded for', documents.length, 'documents for', model.Model.name, documents[0].symbol, 'in attempt', attempt);
+            logger.debug(
+                'put succeeded for',
+                documents.length,
+                'documents for',
+                model.Model.name,
+                documents[0].symbol,
+                'in attempt',
+                attempt,
+            );
         } else if (unprocessedResults.length > 0) {
-            logger.debug('retrying', unprocessedResults.length, 'failed put(s) for', model.Model.name, unprocessedResults[0].unprocessedItems[0].symbol);
+            logger.debug(
+                'retrying',
+                unprocessedResults.length,
+                'failed put(s) for',
+                model.Model.name,
+                unprocessedResults[0].unprocessedItems[0].symbol,
+            );
             let unprocessedDocumentCount = 0;
-            unprocessedResults.forEach(result => (unprocessedDocumentCount += result.unprocessedItems.length));
+            unprocessedResults.forEach((result) => (unprocessedDocumentCount += result.unprocessedItems.length));
 
             const unprocessedDocuments = [];
-            unprocessedResults.forEach(
-                result => result.unprocessedItems.forEach(
-                    unprocessedItem => unprocessedDocuments.push(unprocessedItem)));
+            unprocessedResults.forEach((result) =>
+                result.unprocessedItems.forEach((unprocessedItem) => unprocessedDocuments.push(unprocessedItem)),
+            );
             return batchPut(model, unprocessedDocuments, ++attempt);
         }
         return results;
@@ -73,9 +85,11 @@ async function updateSymbolAsync(symbol, since) {
         allPromises.push(db.CompanyOverview.update(overview));
 
         const dailyAdjusteds = await alphavantage.queryDailyAdjusted(symbol, since);
-        dailyAdjusteds.filter(da => da.splitCoefficient !== 1).forEach(da => {
-            logger.info(da.symbol + ' split on ' + da.date + ' ' + da.splitCoefficient + ':1');
-        });
+        dailyAdjusteds
+            .filter((da) => da.splitCoefficient !== 1)
+            .forEach((da) => {
+                logger.info(da.symbol + ' split on ' + da.date + ' ' + da.splitCoefficient + ':1');
+            });
         if (dailyAdjusteds.length === 0) {
             logger.info('no updates for ' + symbol);
             return;
@@ -102,21 +116,22 @@ async function updateSymbolAsync(symbol, since) {
             let ti = { symbol: symbol, date: dailyAdjusteds[i].date };
 
             if (i < sma200s.length) {
-                if (sma15s[i].date !== dailyAdjusteds[i].date
-                    || sma20s[i].date !== dailyAdjusteds[i].date
-                    || sma50s[i].date !== dailyAdjusteds[i].date
-                    || sma100s[i].date !== dailyAdjusteds[i].date
-                    || sma200s[i].date !== dailyAdjusteds[i].date
-                    || ema12s[i].date !== dailyAdjusteds[i].date
-                    || ema20s[i].date !== dailyAdjusteds[i].date
-                    || ema26s[i].date !== dailyAdjusteds[i].date
-                    || ema50s[i].date !== dailyAdjusteds[i].date
-                    || ema100s[i].date !== dailyAdjusteds[i].date
-                    || ema200s[i].date !== dailyAdjusteds[i].date
-                    || macds[i].date !== dailyAdjusteds[i].date
-                    || rsis[i].date !== dailyAdjusteds[i].date
-                    || bbands[i].date !== dailyAdjusteds[i].date) {
-
+                if (
+                    sma15s[i].date !== dailyAdjusteds[i].date ||
+                    sma20s[i].date !== dailyAdjusteds[i].date ||
+                    sma50s[i].date !== dailyAdjusteds[i].date ||
+                    sma100s[i].date !== dailyAdjusteds[i].date ||
+                    sma200s[i].date !== dailyAdjusteds[i].date ||
+                    ema12s[i].date !== dailyAdjusteds[i].date ||
+                    ema20s[i].date !== dailyAdjusteds[i].date ||
+                    ema26s[i].date !== dailyAdjusteds[i].date ||
+                    ema50s[i].date !== dailyAdjusteds[i].date ||
+                    ema100s[i].date !== dailyAdjusteds[i].date ||
+                    ema200s[i].date !== dailyAdjusteds[i].date ||
+                    macds[i].date !== dailyAdjusteds[i].date ||
+                    rsis[i].date !== dailyAdjusteds[i].date ||
+                    bbands[i].date !== dailyAdjusteds[i].date
+                ) {
                     throw new Error('diff. date ' + symbol);
                 }
             }
@@ -154,11 +169,15 @@ async function updateSymbolAsync(symbol, since) {
 }
 
 const args = process.argv.slice(2);
-const symbols = (args[0] === '*') ? ALL_SYMBOLS : args[0].split(',');
+const symbols = args[0] === '*' ? ALL_SYMBOLS : args[0].split(',');
 const since = args[1] || '2018-01-01';
 
 logger.info('getting data for ' + symbols + ' since ' + since + ' ...');
 
-pMap(symbols.map(symbol => ({ symbol, since })), updateSymbol, { concurrency: 1, stopOnError: false }).then(() => {
+pMap(
+    symbols.map((symbol) => ({ symbol, since })),
+    updateSymbol,
+    { concurrency: 1, stopOnError: false },
+).then(() => {
     logger.info('done, waiting to finish ...');
 });

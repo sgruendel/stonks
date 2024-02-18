@@ -1,10 +1,8 @@
-'use strict';
-
-const dynamoose = require('dynamoose');
+import dynamoose from 'dynamoose';
 const ddb = new dynamoose.aws.ddb.DynamoDB({ region: 'eu-west-1' });
 dynamoose.aws.ddb.set(ddb);
 
-const winston = require('winston');
+import winston from 'winston';
 
 const logger = winston.createLogger({
     level: process.env.LOG_LEVEL || 'info',
@@ -21,7 +19,7 @@ const CONFIG_PREFIX = 'stonks-';
 const CONFIG_WAIT_FOR_ACTIVE = false;
 
 // see https://github.com/dynamoose/dynamoose/issues/209#issuecomment-374258965
-async function handleThroughput(callback, params, attempt = 1) {
+async function _handleThroughput(callback, params, attempt = 1) {
     const BACK_OFF = 500; // back off base time in millis
     const CAP = 10000; // max. back off time in millis
 
@@ -35,27 +33,26 @@ async function handleThroughput(callback, params, attempt = 1) {
             const sleep = temp / 2 + Math.floor((Math.random() * temp) / 2);
             logger.debug('DynamoDB: sleeping for ' + sleep + ' on attempt ' + attempt + ', temp ' + temp);
             await new Promise((resolve) => setTimeout(resolve, sleep));
-            return handleThroughput(callback, params, ++attempt);
+            return _handleThroughput(callback, params, ++attempt);
         } else throw e;
     }
 }
 
-var exports = (module.exports = {});
-
-exports.handleThroughput = async function (callback, params) {
-    return handleThroughput(callback, params);
+export async function handleThroughput(callback, params) {
+    return _handleThroughput(callback, params);
 };
 
-exports.CompanyOverviewSchema = {
+export const CompanyOverviewSchema = {
     symbol: {
         type: String,
         validate: (symbol) => symbol.length > 0,
         required: true,
     },
 };
-exports.CompanyOverview = dynamoose.model(
+
+export const CompanyOverview = dynamoose.model(
     'CompanyOverview',
-    new dynamoose.Schema(exports.CompanyOverviewSchema, {
+    new dynamoose.Schema(CompanyOverviewSchema, {
         saveUnknown: true,
         timestamps: true,
     }),
@@ -66,7 +63,7 @@ exports.CompanyOverview = dynamoose.model(
     },
 );
 
-exports.DailyAdjustedSchema = {
+export const DailyAdjustedSchema = {
     symbol: {
         type: String,
         validate: (symbol) => symbol.length > 0,
@@ -119,9 +116,9 @@ exports.DailyAdjustedSchema = {
         required: true,
     },
 };
-exports.DailyAdjusted = dynamoose.model(
+export const DailyAdjusted = dynamoose.model(
     'DailyAdjusted',
-    new dynamoose.Schema(exports.DailyAdjustedSchema, {
+    new dynamoose.Schema(DailyAdjustedSchema, {
         timestamps: true,
     }),
     {
@@ -131,7 +128,7 @@ exports.DailyAdjusted = dynamoose.model(
     },
 );
 
-exports.TechnicalIndicatorsSchema = {
+export const TechnicalIndicatorsSchema = {
     symbol: {
         type: String,
         validate: (symbol) => symbol.length > 0,
@@ -210,9 +207,9 @@ exports.TechnicalIndicatorsSchema = {
         type: Number,
     },
 };
-exports.TechnicalIndicators = dynamoose.model(
+export const TechnicalIndicators = dynamoose.model(
     'TechnicalIndicators',
-    new dynamoose.Schema(exports.TechnicalIndicatorsSchema, {
+    new dynamoose.Schema(TechnicalIndicatorsSchema, {
         timestamps: true,
     }),
     {

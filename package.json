@@ -3,8 +3,9 @@
     "version": "1.0.0",
     "description": "Stocks and Technical Indicators using Amazon DynamoDB",
     "main": "index.js",
+    "type": "module",
     "scripts": {
-        "test:unit": "export $(cat .env.local | xargs) && c8 --reporter=lcov --reporter=text mocha test/unit/*",
+        "test:unit": "export $(cat .env.local | xargs) && c8 --reporter=lcov --reporter=text mocha test/unit/al*",
         "test:integration": "mocha test/integration/*",
         "test": "npm run test:unit"
     },
@@ -25,25 +26,25 @@
     "dependencies": {
         "dayjs": "^1.11.9",
         "dynamoose": "^4.0.0",
-        "node-fetch": "^2.7.0",
-        "p-map": "^4.0.0",
-        "p-queue": "^6.6.2",
+        "node-fetch": "^3.3.2",
+        "p-map": "^7.0.1",
+        "p-queue": "^8.0.1",
         "winston": "^3.10.0"
     },
     "devDependencies": {
         "c8": "^9.1.0",
-        "chai": "^4.4.1",
+        "chai": "^5.1.0",
         "eslint": "^8.46.0",
         "eslint-config-strongloop": "^2.1.0",
         "mocha": "^10.3.0"
     },
     "eslintConfig": {
         "parserOptions": {
-            "ecmaVersion": 2023
+            "ecmaVersion": 2023,
+            "sourceType": "module"
         },
         "extends": "strongloop",
         "env": {
-            "es2023": true,
             "es6": true,
             "node": true,
             "mocha": true
@@ -63,7 +64,8 @@
                     "ignoreStrings": true,
                     "ignorePattern": "^\\s*var\\s.+=\\s*(require\\s*\\()|(/)"
                 }
-            ]
+            ],
+            "space-before-function-paren": 0
         }
     }
 }

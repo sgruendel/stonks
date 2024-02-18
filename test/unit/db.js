@@ -1,8 +1,6 @@
-'use strict';
+import { expect } from 'chai';
 
-const expect = require('chai').expect;
-
-const db = require('../../src/db');
+import * as db from '../../src/db.js';
 
 describe('db', () => {
     describe('#handleThroughput()', () => {

@@ -1,7 +1,6 @@
-'use strict';
-
-const dayjs = require('dayjs');
-const winston = require('winston');
+import fs from 'fs';
+import dayjs from 'dayjs';
+import winston from 'winston';
 
 const logger = winston.createLogger({
     level: process.env.LOG_LEVEL || 'info',
@@ -13,9 +12,9 @@ const logger = winston.createLogger({
     exitOnError: false,
 });
 
-const db = require('./db');
+import * as db from './db.js';
 
-const ALL_SYMBOLS = require('./symbols.json');
+const ALL_SYMBOLS = JSON.parse(fs.readFileSync('src/symbols.json'));
 const DATE_FORMAT = 'YYYY-MM-DD';
 
 let cash = 1000000;
@@ -24,7 +23,9 @@ const MAX_BUY = 5000;
 const TRANSACTION_FEE = 7.0;
 const TAX_RATE = 0.25;
 let depot = [];
-ALL_SYMBOLS.forEach(symbol => { depot[symbol] = { amount: 0, avgSharePrice: 0.0, profit: 0.0 }; });
+ALL_SYMBOLS.forEach((symbol) => {
+    depot[symbol] = { amount: 0, avgSharePrice: 0.0, profit: 0.0 };
+});
 let transactionFees = 0;
 let taxes = 0;
 
@@ -41,14 +42,16 @@ const filter = (symbol, date) => {
 };
 
 async function getDailyAdjustedFor(symbol, date) {
-    const dailyAdjusted = (await db.handleThroughput(filter => db.DailyAdjusted.query(filter).exec(),
-        filter(symbol, date))).toJSON();
+    const dailyAdjusted = (
+        await db.handleThroughput((filter) => db.DailyAdjusted.query(filter).exec(), filter(symbol, date))
+    ).toJSON();
     return dailyAdjusted.slice(-1)[0];
 }
 
 async function getTechnicalIndicatorsFor(symbol, date) {
-    const tis = (await db.handleThroughput(filter => db.TechnicalIndicators.query(filter).exec(),
-        filter(symbol, date))).toJSON();
+    const tis = (
+        await db.handleThroughput((filter) => db.TechnicalIndicators.query(filter).exec(), filter(symbol, date))
+    ).toJSON();
     if (tis.length < 2) {
         return { tiBefore: undefined, tiCurrent: undefined };
     }
@@ -58,7 +61,7 @@ async function getTechnicalIndicatorsFor(symbol, date) {
 }
 
 async function calcDepot(date) {
-    const values = Object.keys(depot).map(async symbol => {
+    const values = Object.keys(depot).map(async (symbol) => {
         const amount = depot[symbol].amount;
         return amount === 0 ? 0 : amount * (await getDailyAdjustedFor(symbol, date)).adjustedClose;
     });
@@ -76,10 +79,11 @@ async function buy(date, symbol, dailyAdjusted) {
     */
     if (cash >= MIN_BUY && cash >= sharePrice + TRANSACTION_FEE) {
         const amount = Math.floor(Math.min(MAX_BUY, cash - TRANSACTION_FEE) / sharePrice);
-        cash -= (amount * sharePrice) + TRANSACTION_FEE;
+        cash -= amount * sharePrice + TRANSACTION_FEE;
         if (depot[symbol].amount > 0) {
             const newAmount = depot[symbol].amount + amount;
-            const newAvgSharePrice = (depot[symbol].amount * depot[symbol].avgSharePrice + amount * sharePrice) / newAmount;
+            const newAvgSharePrice =
+                (depot[symbol].amount * depot[symbol].avgSharePrice + amount * sharePrice) / newAmount;
             depot[symbol].amount = newAmount;
             depot[symbol].avgSharePrice = newAvgSharePrice;
         } else {
@@ -87,12 +91,33 @@ async function buy(date, symbol, dailyAdjusted) {
             depot[symbol].avgSharePrice = sharePrice;
         }
         transactionFees += TRANSACTION_FEE;
-        logger.info('bought ' + amount + ' of ' + symbol + ' on ' + date.format(DATE_FORMAT) + ' for ' + FMT.format(sharePrice)
-            + ', now have ' + depot[symbol].amount + ' with avg share price of ' + FMT.format(depot[symbol].avgSharePrice)
-            + ', cash is now ' + FMT.format(cash));
+        logger.info(
+            'bought ' +
+                amount +
+                ' of ' +
+                symbol +
+                ' on ' +
+                date.format(DATE_FORMAT) +
+                ' for ' +
+                FMT.format(sharePrice) +
+                ', now have ' +
+                depot[symbol].amount +
+                ' with avg share price of ' +
+                FMT.format(depot[symbol].avgSharePrice) +
+                ', cash is now ' +
+                FMT.format(cash),
+        );
         return true;
     } else {
-        logger.info('cant buy ' + symbol + ' on ' + date.format(DATE_FORMAT) + ' for ' + FMT.format(sharePrice) + ', not enough $ :(');
+        logger.info(
+            'cant buy ' +
+                symbol +
+                ' on ' +
+                date.format(DATE_FORMAT) +
+                ' for ' +
+                FMT.format(sharePrice) +
+                ', not enough $ :(',
+        );
     }
 }
 
@@ -100,15 +125,26 @@ async function sell(date, symbol, dailyAdjusted) {
     if (depot[symbol].amount > 0) {
         const sellPrice = dailyAdjusted.adjustedClose;
         if (sellPrice > depot[symbol].avgSharePrice) {
-            const profit = (depot[symbol].amount * sellPrice) - (depot[symbol].amount * depot[symbol].avgSharePrice);
-            const tax = (profit > 0) ? profit * TAX_RATE : 0.0;
+            const profit = depot[symbol].amount * sellPrice - depot[symbol].amount * depot[symbol].avgSharePrice;
+            const tax = profit > 0 ? profit * TAX_RATE : 0.0;
             // TODO get tax back when selling with loss
-            cash += (depot[symbol].amount * sellPrice) - TRANSACTION_FEE - tax;
+            cash += depot[symbol].amount * sellPrice - TRANSACTION_FEE - tax;
             transactionFees += TRANSACTION_FEE;
             taxes += tax;
-            logger.info('sold ' + depot[symbol].amount + ' of ' + symbol + ' on ' + date.format(DATE_FORMAT) + ' for ' + FMT.format(sellPrice)
-                + ', profit is ' + FMT.format(profit)
-                + ', cash is now ' + FMT.format(cash));
+            logger.info(
+                'sold ' +
+                    depot[symbol].amount +
+                    ' of ' +
+                    symbol +
+                    ' on ' +
+                    date.format(DATE_FORMAT) +
+                    ' for ' +
+                    FMT.format(sellPrice) +
+                    ', profit is ' +
+                    FMT.format(profit) +
+                    ', cash is now ' +
+                    FMT.format(cash),
+            );
 
             depot[symbol].amount = 0;
             depot[symbol].avgSharePrice = 0.0;
@@ -145,7 +181,7 @@ function buyItMacdHist(tiBefore, tiCurrent) {
             // TODO only buy if MACD < 0
             // TODO don't buy if RSI <50
             // TODO only if above SMA50
-            return true;//tiCurrent.macd < 2.0 && tiCurrent.rsi < 50.0*/;
+            return true; //tiCurrent.macd < 2.0 && tiCurrent.rsi < 50.0*/;
         }
     }
 }
@@ -156,7 +192,7 @@ function sellItMacdHist(tiBefore, tiCurrent) {
         if (tiBefore.macdHist > 0 && tiCurrent.macdHist < 0) {
             // TODO only sell if MACD > 0
             // TODO don't sell if RSI >50
-            return true;//tiCurrent.macd > -2.0 /*&& tiCurrent.rsi > 50.0*/;
+            return true; //tiCurrent.macd > -2.0 /*&& tiCurrent.rsi > 50.0*/;
         }
     }
 }
@@ -220,7 +256,7 @@ async function emulateTrades(fromDate, toDate, symbols) {
     while (date.isBefore(lastTradingDate) || date.isSame(lastTradingDate)) {
         if (date.day() >= 1 && date.day() <= 5) {
             // only trade Mon-Fri
-            const trades = symbols.map(async symbol => {
+            const trades = symbols.map(async (symbol) => {
                 try {
                     return await trade(symbol, date, buyItMacdHist, sellItMacdHist, 'MACD');
                 } catch (err) {
@@ -236,23 +272,28 @@ async function emulateTrades(fromDate, toDate, symbols) {
 
     // calc profit for remaining shares
 
-    await Promise.all(Object.keys(depot).map(async(symbol) => {
-        const stock = depot[symbol];
-        if (stock.amount > 0) {
-            const sellPrice = (await getDailyAdjustedFor(symbol, lastTradingDate)).adjustedClose;
-            const profit = stock.amount * (sellPrice - stock.avgSharePrice);
-            // const tax = (profit > 0) ? profit * TAX_RATE : 0.0;
-            // cash += (depot[symbol].amount * sellPrice) - TRANSACTION_FEE - tax;
-            stock.profit += profit;
-        }
-    }));
+    await Promise.all(
+        Object.keys(depot).map(async (symbol) => {
+            const stock = depot[symbol];
+            if (stock.amount > 0) {
+                const sellPrice = (await getDailyAdjustedFor(symbol, lastTradingDate)).adjustedClose;
+                const profit = stock.amount * (sellPrice - stock.avgSharePrice);
+                // const tax = (profit > 0) ? profit * TAX_RATE : 0.0;
+                // cash += (depot[symbol].amount * sellPrice) - TRANSACTION_FEE - tax;
+                stock.profit += profit;
+            }
+        }),
+    );
 
     const symbolsByProfit = Object.keys(depot).sort((symbol1, symbol2) => {
-        return depot[symbol1].profit < depot[symbol2].profit ? -1
-            : (depot[symbol1].profit > depot[symbol2].profit ? 1 : 0);
+        return depot[symbol1].profit < depot[symbol2].profit
+            ? -1
+            : depot[symbol1].profit > depot[symbol2].profit
+            ? 1
+            : 0;
     });
     logger.info('depot:');
-    symbolsByProfit.forEach(symbol => {
+    symbolsByProfit.forEach((symbol) => {
         let stock = depot[symbol];
         if (stock.profit !== 0) {
             stock.avgSharePrice = stock.avgSharePrice.toFixed(2);
@@ -265,11 +306,13 @@ async function emulateTrades(fromDate, toDate, symbols) {
     const depotValue = await calcDepot(lastTradingDate);
     logger.info('depot value is ' + FMT.format(depotValue));
     logger.info('sum of cash+depot is ' + FMT.format(cash + depotValue));
-    logger.info('transaction fees / taxes (already included in cash): ' + FMT.format(transactionFees) + '/' + FMT.format(taxes));
+    logger.info(
+        'transaction fees / taxes (already included in cash): ' + FMT.format(transactionFees) + '/' + FMT.format(taxes),
+    );
 }
 
 const args = process.argv.slice(2);
-const symbols = (args[0] === '*') ? ALL_SYMBOLS : args[0].split(',');
+const symbols = args[0] === '*' ? ALL_SYMBOLS : args[0].split(',');
 const from = args[1] || '2021-01-01';
 const to = args[2] || dayjs().format(DATE_FORMAT);
 
