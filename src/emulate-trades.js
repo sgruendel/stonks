@@ -32,6 +32,16 @@ let taxes = 0;
 // Has symbol closed below sma50 previously?
 let closedBelowSma50 = [];
 
+// Last 20 daily adjusted closes for symbol
+let closes = [];
+ALL_SYMBOLS.forEach((symbol) => {
+    closes[symbol] = [];
+});
+
+const swingLow = (symbol) => {
+    return Math.min(...closes[symbol]);
+};
+
 const FMT = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 });
 
 const filter = (symbol, date) => {
@@ -71,12 +81,10 @@ async function calcDepot(date) {
 async function buy(date, symbol, dailyAdjusted) {
     const sharePrice = dailyAdjusted.adjustedClose;
     // performs better with rebuying
-    /*
     if (depot[symbol].amount > 0 && sharePrice >= depot[symbol].avgSharePrice) {
         console.log('not re-buying ' + symbol + ' at higher price');
         return false;
     }
-    */
     if (cash >= MIN_BUY && cash >= sharePrice + TRANSACTION_FEE) {
         const amount = Math.floor(Math.min(MAX_BUY, cash - TRANSACTION_FEE) / sharePrice);
         cash -= amount * sharePrice + TRANSACTION_FEE;
@@ -121,10 +129,10 @@ async function buy(date, symbol, dailyAdjusted) {
     }
 }
 
-async function sell(date, symbol, dailyAdjusted) {
+async function sell(date, symbol, dailyAdjusted, force = false) {
     if (depot[symbol].amount > 0) {
         const sellPrice = dailyAdjusted.adjustedClose;
-        if (sellPrice > depot[symbol].avgSharePrice) {
+        if (force || sellPrice > depot[symbol].avgSharePrice) {
             const profit = depot[symbol].amount * sellPrice - depot[symbol].amount * depot[symbol].avgSharePrice;
             const tax = profit > 0 ? profit * TAX_RATE : 0.0;
             // TODO get tax back when selling with loss
@@ -149,6 +157,8 @@ async function sell(date, symbol, dailyAdjusted) {
             depot[symbol].amount = 0;
             depot[symbol].avgSharePrice = 0.0;
             depot[symbol].profit += profit;
+            depot[symbol].stopLoss = undefined;
+            depot[symbol].profitTarget = undefined;
             return true;
         } else {
             logger.info('not selling ' + symbol + ' at lower price');
@@ -180,8 +190,8 @@ function buyItMacdHist(tiBefore, tiCurrent) {
         if (tiBefore.macdHist < 0 && tiCurrent.macdHist > 0) {
             // TODO only buy if MACD < 0
             // TODO don't buy if RSI <50
-            // TODO only if above SMA50
-            return true; //tiCurrent.macd < 2.0 && tiCurrent.rsi < 50.0*/;
+            // TODO only if above SMA50 or EMA100
+            return true; // tiCurrent.macd < 2.0 && tiCurrent.rsi < 50.0*/;
         }
     }
 }
@@ -192,7 +202,46 @@ function sellItMacdHist(tiBefore, tiCurrent) {
         if (tiBefore.macdHist > 0 && tiCurrent.macdHist < 0) {
             // TODO only sell if MACD > 0
             // TODO don't sell if RSI >50
-            return true; //tiCurrent.macd > -2.0 /*&& tiCurrent.rsi > 50.0*/;
+            return true; // tiCurrent.macd > -2.0 /*&& tiCurrent.rsi > 50.0*/;
+        }
+    }
+}
+
+function buyItBB(tiBefore, tiCurrent, dailyAdjusted) {
+    if (tiBefore.bbandUpper && tiCurrent.bbandUpper) {
+        if (tiBefore.bbandUpper > tiCurrent.bbandUpper && tiBefore.bbandLower < tiCurrent.bbandLower) {
+            // TODO only buy if MACD < 0
+            // TODO don't buy if RSI <50
+            // TODO only if above SMA50 or EMA100
+            return dailyAdjusted.close < tiCurrent.bbandLower;
+        }
+    }
+}
+
+function sellItBB(tiBefore, tiCurrent, dailyAdjusted) {
+    if (tiBefore.bbandUpper && tiCurrent.bbandUpper) {
+        if (tiBefore.bbandUpper < tiCurrent.bbandUpper && tiBefore.bbandLower > tiCurrent.bbandLower) {
+            // TODO only buy if MACD < 0
+            // TODO don't buy if RSI <50
+            // TODO only if above SMA50 or EMA100
+            return dailyAdjusted.close > tiBefore.bbandUpper && dailyAdjusted.close < tiCurrent.bbandUpper;
+        }
+    }
+}
+
+function buyItRSI(tiBefore, tiCurrent, dailyAdjusted) {
+    if (tiBefore.rsi && tiCurrent.rsi) {
+        if (tiBefore.rsi < tiCurrent.rsi && tiBefore.rsi < 33) {
+            // TODO only if above SMA50 or EMA100
+            return true; // dailyAdjusted.close < tiCurrent.bbandUpper;
+        }
+    }
+}
+
+function sellItRSI(tiBefore, tiCurrent) {
+    if (tiBefore.rsi && tiCurrent.rsi) {
+        if (tiBefore.rsi > tiCurrent.rsi && tiBefore.rsi > 70) {
+            return true;
         }
     }
 }
@@ -232,19 +281,59 @@ async function trade(symbol, date, buyItFn, sellItFn, strategy) {
             closedBelowSma50[symbol] = false;
         }
 
-        const buyIt = buyItFn(tiBefore, tiCurrent);
-        const sellIt = sellItFn(tiBefore, tiCurrent);
-        // TODO Gewinnmitnahme / stop loss via ATR: https://broker-test.de/trading-news/modifizierter-macd-und-die-average-true-range-35691/
-        if (buyIt && !sellIt) {
-            logger.info(strategy + ': buy ' + symbol + ' on ' + date.format(DATE_FORMAT));
-            return buy(date, symbol, dailyAdjusted);
-        } else if (sellIt && !buyIt) {
-            logger.info(strategy + ': sell ' + symbol + ' on ' + date.format(DATE_FORMAT));
-            return sell(date, symbol, dailyAdjusted);
-        } else if (sellIt && buyIt) {
-            // shouldn't really happen
-            logger.error(date.format(DATE_FORMAT), symbol, 'ambigous signals');
+        let sellIt = false;
+        /*
+        if (depot[symbol].amount) {
+            if (depot[symbol].stopLoss && dailyAdjusted.close < depot[symbol].stopLoss) {
+                sellIt = true;
+                logger.info('stop loss: ' + symbol + ' selling on ' + date.format(DATE_FORMAT));
+            } else if (depot[symbol].profitTarget && dailyAdjusted.close > depot[symbol].profitTarget) {
+                sellIt = true;
+                logger.info('profit target: ' + symbol + ' selling on ' + date.format(DATE_FORMAT));
+            }
+         }
+        */
+
+        let result;
+        if (sellIt) {
+            result = await sell(date, symbol, dailyAdjusted, true);
+        } else {
+            const buyIt = buyItFn(tiBefore, tiCurrent, dailyAdjusted);
+            sellIt = sellItFn(tiBefore, tiCurrent, dailyAdjusted);
+            // TODO Gewinnmitnahme / stop loss via ATR: https://broker-test.de/trading-news/modifizierter-macd-und-die-average-true-range-35691/
+
+            if (buyIt && !sellIt) {
+                logger.info(strategy + ': buy ' + symbol + ' on ' + date.format(DATE_FORMAT));
+                result = await buy(date, symbol, dailyAdjusted);
+                if (result) {
+                    const newStopLoss = swingLow(symbol);
+                    if (!depot[symbol].stopLoss || newStopLoss < depot[symbol].stopLoss) {
+                        depot[symbol].stopLoss = newStopLoss;
+                        depot[symbol].profitTarget = 1.5 * depot[symbol].stopLoss;
+                        logger.info(
+                            symbol +
+                                ': stop loss now ' +
+                                depot[symbol].stopLoss +
+                                ', profit target ' +
+                                depot[symbol].profitTarget,
+                        );
+                    }
+                }
+            } else if (sellIt && !buyIt) {
+                logger.info(strategy + ': sell ' + symbol + ' on ' + date.format(DATE_FORMAT));
+                result = await sell(date, symbol, dailyAdjusted);
+            } else if (sellIt && buyIt) {
+                // shouldn't really happen
+                logger.error(date.format(DATE_FORMAT), symbol, 'ambigous signals');
+            }
         }
+
+        closes[symbol].push(dailyAdjusted.close);
+        if (closes[symbol].length > 20) {
+            closes[symbol].shift();
+        }
+
+        return result;
     }
 }
 
@@ -258,7 +347,11 @@ async function emulateTrades(fromDate, toDate, symbols) {
             // only trade Mon-Fri
             const trades = symbols.map(async (symbol) => {
                 try {
-                    return await trade(symbol, date, buyItMacdHist, sellItMacdHist, 'MACD');
+                    //return await trade(symbol, date, buyItMacdHist, sellItMacdHist, 'MACD');
+
+                    return await trade(symbol, date, buyItRSI, sellItRSI, 'RSI');
+
+                    //return await trade(symbol, date, buyItBB, sellItBB, 'BB');
                 } catch (err) {
                     logger.error(date.format(DATE_FORMAT) + ' ' + symbol, err);
                 }
@@ -289,13 +382,13 @@ async function emulateTrades(fromDate, toDate, symbols) {
         return depot[symbol1].profit < depot[symbol2].profit
             ? -1
             : depot[symbol1].profit > depot[symbol2].profit
-            ? 1
-            : 0;
+                ? 1
+                : 0;
     });
     logger.info('depot:');
     symbolsByProfit.forEach((symbol) => {
         let stock = depot[symbol];
-        if (stock.profit !== 0) {
+        if (stock.amount > 0 || stock.profit !== 0) {
             stock.avgSharePrice = stock.avgSharePrice.toFixed(2);
             stock.profit = stock.profit.toFixed(2);
             logger.info(symbol, stock);
@@ -313,7 +406,7 @@ async function emulateTrades(fromDate, toDate, symbols) {
 
 const args = process.argv.slice(2);
 const symbols = args[0] === '*' ? ALL_SYMBOLS : args[0].split(',');
-const from = args[1] || '2021-01-01';
+const from = args[1] || dayjs().subtract(7, 'days').format(DATE_FORMAT);
 const to = args[2] || dayjs().format(DATE_FORMAT);
 
 logger.info(`emulating trades for ${symbols} from ${from} to ${to} ...`);
