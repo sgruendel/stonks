@@ -28,7 +28,7 @@
         "dynamoose": "^4.0.3",
         "node-fetch": "^3.3.2",
         "p-map": "^7.0.3",
-        "p-queue": "^8.0.1",
+        "p-queue": "^8.1.0",
         "winston": "^3.17.0"
     },
     "devDependencies": {
@@ -36,7 +36,7 @@
         "chai": "^5.1.2",
         "eslint": "^9.18.0",
         "eslint-config-strongloop": "^2.1.0",
-        "mocha": "^11.0.1"
+        "mocha": "^11.1.0"
     },
     "eslintConfig": {
         "parserOptions": {
