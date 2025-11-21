@@ -28,7 +28,7 @@
         "dynamoose": "^4.0.4",
         "node-fetch": "^3.3.2",
         "p-map": "^7.0.4",
-        "p-queue": "^9.0.0",
+        "p-queue": "^9.0.1",
         "winston": "^3.18.3"
     },
     "devDependencies": {
