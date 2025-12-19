@@ -28,11 +28,15 @@ const options = {
 };
 
 const API_KEY = process.env.ALPHAVANTAGE_API_KEY;
-const INTERVAL_SECS = Number(process.env.ALPHAVANTAGE_INTERVAL_SECS) || 60;
-const INTERVAL_CAP = Number(process.env.ALPHAVANTAGE_INTERVAL_CAP) || 5;
+const INTERVAL_SECS = Number(process.env.ALPHAVANTAGE_INTERVAL_SECS) || 1;
+const INTERVAL_CAP = Number(process.env.ALPHAVANTAGE_INTERVAL_CAP) || 1;
 
-// Request limit of 5 per minute for Alpha Vantage with free key; max. 500 per day not considered here
+// Request limit of 75 per minute for Alpha Vantage with premium key, but no more than 5 per second;
+// so we default to 1 per second to be safe (i.e. 60 per minute) and concurrency of 5
 const queue = new PQueue({ concurrency: 5, interval: INTERVAL_SECS * 1000, intervalCap: INTERVAL_CAP });
+queue.on('error', (err) => {
+    console.error('queue error' + err);
+});
 
 const BASE_URL = 'https://www.alphavantage.co/';
 const FULL = 'full';
@@ -55,11 +59,18 @@ function getApiKey() {
     const min = 1;
     const max = 9999999;
     const apiKey = Math.floor(Math.random() * (max - min)) + min;
-    return apiKey;
+    return apiKey.toString();
 }
 
 function normalizeKey(key) {
-    return /^[A-Z][a-z]/.test(key) ? key[0].toLowerCase() + key.substr(1) : key;
+    return /^[A-Z][a-z]/.test(key) ? key[0].toLowerCase() + key.substring(1) : key;
+}
+
+function isEmptyJson(value) {
+    if (value === null || value === undefined) return true;
+    if (Array.isArray(value)) return value.length === 0;
+    if (typeof value === 'object') return Object.keys(value).length === 0;
+    return false;
 }
 
 // see https://github.com/dynamoose/dynamoose/issues/209#issuecomment-374258965
@@ -85,9 +96,21 @@ async function handleThroughput(callback, params, attempt = 1) {
 
 async function query(qs) {
     logger.debug('calling ' + querystring.stringify(qs));
-    const response = await queue.add(() => fetch(BASE_URL + 'query?' + querystring.stringify(qs), options));
-    logger.debug('queue size/pending: ' + queue.size + '/' + queue.pending);
-    return response && response.json();
+    let attempt = 0;
+    while (true) {
+        const response = await queue.add(() => fetch(BASE_URL + 'query?' + querystring.stringify(qs), options));
+        logger.debug('queue size/pending: ' + queue.size + '/' + queue.pending);
+        if (!response.ok) {
+            return response; // contains error info
+        }
+        const json = await response.json();
+        if (!isEmptyJson(json) || attempt++ > 10) {
+            return json;
+        }
+        // empty response, retry
+        logger.warn('empty response, retrying in attempt ' + attempt);
+        await new Promise((resolve) => setTimeout(resolve, INTERVAL_SECS * 1000));
+    }
 }
 
 async function queryTechnicalIndicators(qs, resultKey) {
@@ -125,7 +148,7 @@ export async function queryCompanyOverview(symbol) {
         overview[normalizeKey(key)] = result[key];
     });
     return overview;
-};
+}
 
 export async function queryDailyAdjusted(symbol, since) {
     const qs = {
@@ -151,7 +174,7 @@ export async function queryDailyAdjusted(symbol, since) {
                 splitCoefficient: Number(value['8. split coefficient']),
             };
         });
-};
+}
 
 export async function querySMA(symbol, timePeriod, since) {
     const qs = {
@@ -168,7 +191,7 @@ export async function querySMA(symbol, timePeriod, since) {
         .map((sma) => {
             return { symbol: symbol, date: sma.date, sma: Number(sma.SMA) };
         });
-};
+}
 
 export async function queryEMA(symbol, timePeriod, since) {
     const qs = {
@@ -185,7 +208,7 @@ export async function queryEMA(symbol, timePeriod, since) {
         .map((ema) => {
             return { symbol: symbol, date: ema.date, ema: Number(ema.EMA) };
         });
-};
+}
 
 export async function queryMACD(symbol, since) {
     const qs = {
@@ -207,7 +230,7 @@ export async function queryMACD(symbol, since) {
                 signal: Number(macd.MACD_Signal),
             };
         });
-};
+}
 
 export async function queryRSI(symbol, timePeriod, since) {
     const qs = {
@@ -228,7 +251,7 @@ export async function queryRSI(symbol, timePeriod, since) {
                 rsi: Number(rsi.RSI),
             };
         });
-};
+}
 
 export async function queryBBands(symbol, timePeriod, since) {
     const qs = {
@@ -251,4 +274,4 @@ export async function queryBBands(symbol, timePeriod, since) {
                 middle: Number(bbands['Real Middle Band']),
             };
         });
-};
+}
