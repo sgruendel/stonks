@@ -382,8 +382,8 @@ async function emulateTrades(fromDate, toDate, symbols) {
         return depot[symbol1].profit < depot[symbol2].profit
             ? -1
             : depot[symbol1].profit > depot[symbol2].profit
-                ? 1
-                : 0;
+              ? 1
+              : 0;
     });
     logger.info('depot:');
     symbolsByProfit.forEach((symbol) => {
