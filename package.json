@@ -24,7 +24,7 @@
     },
     "homepage": "https://github.com/sgruendel/stonks#readme",
     "dependencies": {
-        "dayjs": "^1.11.21",
+        "dayjs": "^1.11.23",
         "dynamoose": "^4.2.0",
         "node-fetch": "^3.3.2",
         "p-map": "^7.0.6",
