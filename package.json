@@ -4,6 +4,9 @@
     "description": "Stocks and Technical Indicators using Amazon DynamoDB",
     "main": "index.js",
     "type": "module",
+    "engines": {
+        "node": ">=22"
+    },
     "scripts": {
         "test:unit": "export $(cat .env.local | grep -v '^#' | xargs) && c8 --reporter=lcov --reporter=text mocha test/unit/*",
         "test:integration": "mocha test/integration/*",
@@ -27,13 +30,13 @@
         "dayjs": "^1.11.23",
         "dynamoose": "^4.2.0",
         "node-fetch": "^3.3.2",
-        "p-map": "^7.0.8",
-        "p-queue": "^9.3.3",
+        "p-map": "^7.1.1",
+        "p-queue": "^10.0.0",
         "winston": "^3.19.0"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
-        "@types/node": "^24.13.3",
+        "@types/node": "^24.19.2",
         "c8": "^12.0.0",
         "chai": "^6.3.0",
         "eslint": "^10.12.0",
